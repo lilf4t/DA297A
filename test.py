@@ -1,11 +1,11 @@
-import psycopg2
+import psycopg
 import tkinter as tk
 from tkinter import messagebox
 
 hostname = 'pgserver.mau.se'  
 database = 'health_center_group21'   #Namn på ditt databas
-username = 'an4952'  #Ditt databas username, laila:an4952, fatima:an4263
-pwd  = '50owi0jd' #Password, laila:50owi0jd, fatima:2ecfcvkm
+username = 'an4263'  #Ditt databas username, laila:an4952, fatima:an4263
+pwd  = '2ecfcvkm' #Password, laila:50owi0jd, fatima:2ecfcvkm
 port_id = 5432
 
 # Inloggningsalternativ för user. 
@@ -17,7 +17,7 @@ def verify_login(user_type, user_id):
             messagebox.showinfo("Success", "Admin login successful!") #Automatiskt godkännande för en admin. 
             return
         
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host = hostname,
             dbname = database,
             user = username,    
