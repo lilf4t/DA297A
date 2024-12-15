@@ -59,6 +59,8 @@ def login():
         return
 
     verify_login(user_type, user_id)  
+    
+    
 # GUI     
 root = tk.Tk()
 root.title("Health Center Login")
@@ -73,6 +75,7 @@ patient_radio = tk.Radiobutton(root, text="Patient", variable=user_type_var, val
 admin_radio.grid(row=0, column=0, padx=10, pady=10)
 doctor_radio.grid(row=0, column=1, padx=10, pady=10)
 patient_radio.grid(row=0, column=2, padx=10, pady=10)
+
 # input till user
 user_id_label = tk.Label(root, text="Enter ID:")
 user_id_label.grid(row=1, column=0, padx=10, pady=10)
@@ -83,5 +86,6 @@ user_id_entry.grid(row=1, column=1, padx=10, pady=10, columnspan=2)
 # login knappar
 login_button = tk.Button(root, text="Login", command=login)
 login_button.grid(row=2, column=0, columnspan=3, pady=20)
+
 
 root.mainloop()
