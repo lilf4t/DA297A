@@ -7,7 +7,7 @@
 # ----------------------
 
 
-import psycopg2
+import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -15,8 +15,8 @@ from tkinter import ttk, messagebox
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 

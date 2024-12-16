@@ -7,9 +7,11 @@
 # 5. See a list of all medical record related to a specific patient
 # 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.)
 # ----------------------
-##hej
 
-import psycopg2
+
+
+import psycopg
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -17,8 +19,8 @@ from tkinter import ttk, messagebox
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 
@@ -42,7 +44,7 @@ def show_admin_gui(root):
     #Hämtar alla specialiseringar för läkare
     def fetch_specializations():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("SELECT spec_id, spec_name FROM specialization")
                 specializations = curr.fetchall()
@@ -58,7 +60,7 @@ def show_admin_gui(root):
     # Hämtar alla läkare
     def fetch_doctors():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
@@ -79,7 +81,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please provide Specialization.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("INSERT INTO specialization (spec_name) VALUES (%s)", (spec_name,))
                 conn.commit()
@@ -113,7 +115,7 @@ def show_admin_gui(root):
             spec_id = int(spec_id)
             visit_cost = float(visit_cost) if visit_cost else 0.0  # Default blit 0.0 om man inte lägger till pris. 
         
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
              curr.execute(
                 "INSERT INTO doctors (doc_id, f_name, l_name, spec_id, phone_nr, visit_cost) "
@@ -144,7 +146,7 @@ def show_admin_gui(root):
                 raise ValueError("Doctor ID doesn't exist. Try again!")
             doc_id = int(doc_id)
 
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("DELETE FROM doctors WHERE doc_id = %s", (doc_id,))
                 conn.commit()
@@ -159,13 +161,13 @@ def show_admin_gui(root):
     #Hämtar patienter. 
     def fetch_patients():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                curr.execute("""SELECT pat_id, f_name, l_name, gender, phone_nr, dob FROM patients """)
+                curr.execute("""SELECT pat_id, f_name, l_name, gender, phone_nr, dob, registration_date FROM patients """)
                 patients = curr.fetchall()
                 patient_list.delete(0, tk.END)
-                for pat_id, f_name, l_name, gender, phone_nr, dob in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
-                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}")
+                for pat_id, f_name, l_name, gender, phone_nr, dob, registration_date in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
+                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}")
                         patient_list.insert(tk.END, patient_info)
         except Exception as error:
             messagebox.showerror("Error", str(error))
@@ -179,14 +181,16 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                curr.execute("""SELECT rec_id, doc_id, diagnosis, prescription, visit_date FROM medicalrecords WHERE pat_id = %s""", (pat_id,))
+                curr.execute("""SELECT medicalrecords.rec_id, doctors.doc_id, medicalrecords.diagnosis, medicalrecords.prescription, doctoravailability.booking_date, doctoravailability.time_slot FROM medicalrecords JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
+                JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
+                    AND doctoravailability.pat_id = medicalrecords.pat_id WHERE medicalrecords.pat_id = %s""", (pat_id,))
                 records = curr.fetchall()
                 medical_record_list.delete(0, tk.END)
                 if records:
-                    for rec_id, doc_id, diagnosis, prescription, visit_date in records:
-                        record_info = ( f"Record ID: {rec_id}, Doctor ID: {doc_id}, Diagnosis: {diagnosis}, Prescription: {prescription}, Visit Date: {visit_date}")
+                    for rec_id, doc_id, diagnosis, prescription, booking_date, time_slot in records:
+                        record_info = ( f"Record ID: {rec_id}, Doctor ID: {doc_id}, Diagnosis: {diagnosis}, Prescription: {prescription}, Visit Date: {booking_date} at {time_slot}")
                         medical_record_list.insert(tk.END, record_info)
         except Exception as error:
             messagebox.showerror("Error", str(error))
@@ -200,15 +204,15 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 # fatima kolla upp det
-                curr.execute("""SELECT historylog.log_id, historylog.doc_availability_id, historylog.doc_id, historylog.action_type, historylog.action_time FROM historylog WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
+                curr.execute("""SELECT historylog.log_id, historylog.doc_id, doctors.f_name, doctors.l_name, historylog.action_type, historylog.action_time, patients.f_name, patients.l_name, doctoravailability.booking_date, doctoravailability.time_slot FROM historylog JOIN patients ON historylog.pat_id = patients.pat_id JOIN doctors ON historylog.doc_id = doctors.doc_id JOIN doctoravailability ON historylog.doc_availability_id = doctoravailability.doc_availability_id WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
                 appointments = curr.fetchall()
                 appointment_list.delete(0, tk.END)
                 if appointments:
-                    for log_id, doc_avail_id, doc_id, action_type, action_time in appointments:
-                        appointment_info = (  f"Log ID: {log_id}, Doctor Availability ID: {doc_avail_id}, Doctor ID: {doc_id}, Action Time: {action_time}")
+                    for log_id, doc_id, doc_fname, doc_lname, action_type, action_time, patient_fname ,patient_lname, booking_date, time_slot in appointments:
+                        appointment_info = (  f"Log ID: {log_id}, Doctor ID: {doc_id} and name: {doc_fname} {doc_lname}, Patient: {patient_fname} {patient_lname}, Appointment date: {booking_date} at {time_slot}, When the appointment was {action_type}: {action_time}")
                         appointment_list.insert(tk.END, appointment_info)
                 else: 
                     appointment_list.insert(tk.END, "No upcoming appointments found for this patient.")
