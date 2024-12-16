@@ -7,7 +7,7 @@
 # 5. See a list of all medical record related to a specific patient
 # 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.)
 # ----------------------
-
+##hej
 
 import psycopg2
 import tkinter as tk
