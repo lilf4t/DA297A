@@ -29,7 +29,7 @@ def verify_login(user_type, user_id):
 
         if user_type == "Doctor":
             curr.execute("SELECT * FROM doctors WHERE doc_id = %s", (user_id,))
-            show_doctor_gui(root)
+            show_doctor_gui(root, user_id)
         elif user_type == "Patient":
             curr.execute("SELECT * FROM patients WHERE pat_id = %s", (user_id,))
             show_patient_gui(root)

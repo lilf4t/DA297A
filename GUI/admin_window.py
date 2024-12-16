@@ -202,6 +202,7 @@ def show_admin_gui(root):
         try:
             conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
+                # fatima kolla upp det
                 curr.execute("""SELECT historylog.log_id, historylog.doc_availability_id, historylog.doc_id, historylog.action_type, historylog.action_time FROM historylog WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
                 appointments = curr.fetchall()
                 appointment_list.delete(0, tk.END)
