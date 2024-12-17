@@ -6,25 +6,25 @@
 # 4. View their medical record (see all diagnosis and prescription) for each previous visit.
 # ----------------------
 
-
 import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 
+# Databas konfiguration
 db_config = {
     'host': 'pgserver.mau.se',
-    'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'dbname': 'health_center_group21',  # Databas namn
+    'user': 'an4263',   # Databas användarnamn, laila: an4952, fatima: an4263
+    'password': '2ecfcvkm',  # Lösenord, laila: 50owi0jd, fatima: 2ecfcvkm
     'port': 5432
 }
 
 #Patient GUI
 def show_patient_gui(root):
-    admin_window = tk.Toplevel(root)
-    admin_window.title("Patient View")
-    admin_window.configure(bg='lightblue')
+    patient_window = tk.Toplevel(root)
+    patient_window.title("Patient View")
+    patient_window.configure(bg='lightblue')
 
 
     #Fixa kod här för patient
