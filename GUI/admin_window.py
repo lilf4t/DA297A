@@ -1,17 +1,14 @@
 # What can an admin do?
 # ----------------------
-# 1. Add doctor (including their doctor ID, full name, specilization, visit cost and phone number)
-# 2. Add more specilizations for doctors
-# 3. See a list of information about the patients registered in the health center
-# 4. See a list of all upcoming appointments
-# 5. See a list of all medical record related to a specific patient
-# 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.)
+# 1. Add doctor (including their doctor ID, full name, specilization, visit cost and phone number) - done
+# 2. Add more specilizations for doctors - done
+# 3. See a list of information about the patients registered in the health center - done
+# 4. See a list of all upcoming appointments - done
+# 5. See a list of all medical record related to a specific patient - done
+# 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.) - done
 # ----------------------
 
-
-
-import psycopg2
-
+import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -19,8 +16,8 @@ from tkinter import ttk, messagebox
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 
@@ -44,7 +41,7 @@ def show_admin_gui(root):
     #Hämtar alla specialiseringar för läkare
     def fetch_specializations():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("SELECT spec_id, spec_name FROM specialization")
                 specializations = curr.fetchall()
@@ -60,7 +57,7 @@ def show_admin_gui(root):
     # Hämtar alla läkare
     def fetch_doctors():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
@@ -81,7 +78,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please provide Specialization.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("INSERT INTO specialization (spec_name) VALUES (%s)", (spec_name,))
                 conn.commit()
@@ -115,7 +112,7 @@ def show_admin_gui(root):
             spec_id = int(spec_id)
             visit_cost = float(visit_cost) if visit_cost else 0.0  # Default blit 0.0 om man inte lägger till pris. 
         
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
              curr.execute(
                 "INSERT INTO doctors (doc_id, f_name, l_name, spec_id, phone_nr, visit_cost) "
@@ -146,7 +143,7 @@ def show_admin_gui(root):
                 raise ValueError("Doctor ID doesn't exist. Try again!")
             doc_id = int(doc_id)
 
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("DELETE FROM doctors WHERE doc_id = %s", (doc_id,))
                 conn.commit()
@@ -161,21 +158,19 @@ def show_admin_gui(root):
     #Hämtar patienter. 
     def fetch_patients():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr: 
-                #COALENSCE(SUM(..),0) kollar om det inte finns några kostnader så visas det 0, annars summera.
                 #LEFT JOIN  - inkludera även patienter som inte har medical records
                 #GROUP BY - grupperar resultaten per patient.
-                curr.execute("""SELECT p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, 
-                            COALESCE(SUM(d.visit_cost), 0) AS visit_sum FROM patients p 
+                curr.execute("""SELECT p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, visit_sum FROM patients p 
                             LEFT JOIN medicalrecords m ON p.pat_id = m.pat_id
                             LEFT JOIN doctors d ON m.doc_id = d.doc_id
-                            GROUP BY p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date
+                            GROUP BY p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, visit_sum
                             ORDER BY p.pat_id """)
                 patients = curr.fetchall()
                 patient_list.delete(0, tk.END)
                 for pat_id, f_name, l_name, gender, phone_nr, dob, registration_date, visit_sum in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
-                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}, "f"Visit costs: {visit_sum} SEK")
+                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}, "f"Visit sum: {visit_sum} SEK")
                         patient_list.insert(tk.END, patient_info)
         except Exception as error:
             messagebox.showerror("Error", str(error))
@@ -189,7 +184,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT medicalrecords.rec_id, doctors.doc_id, medicalrecords.diagnosis, medicalrecords.prescription, doctoravailability.booking_date, doctoravailability.time_slot FROM medicalrecords JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
                 JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
@@ -215,7 +210,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 # fatima kolla upp det
                 curr.execute("""SELECT historylog.log_id, historylog.doc_id, doctors.f_name, doctors.l_name, historylog.action_type, historylog.action_time, patients.f_name, patients.l_name, doctoravailability.booking_date, doctoravailability.time_slot FROM historylog JOIN patients ON historylog.pat_id = patients.pat_id JOIN doctors ON historylog.doc_id = doctors.doc_id JOIN doctoravailability ON historylog.doc_availability_id = doctoravailability.doc_availability_id WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))

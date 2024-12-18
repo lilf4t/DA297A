@@ -7,7 +7,7 @@
 # ----------------------
 
 
-import psycopg2
+import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -18,8 +18,8 @@ from datetime import datetime
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 
@@ -55,7 +55,7 @@ def sign_up_patient(root, pre_filled_id=None):
 
         try:
             pat_id = int(pat_id)
-            conn = psycopg2.connect(**db_config) 
+            conn = psycopg.connect(**db_config) 
             curr = conn.cursor() 
             with conn.cursor() as curr:
                 curr.execute("""INSERT INTO patients (pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",(pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date))
@@ -130,7 +130,7 @@ def show_patient_gui(pat_id, root):
     # Hämtar  patient information med pat_id.
     def fetch_and_display_patient_info():
         try:
-            conn = psycopg2.connect(**db_config) 
+            conn = psycopg.connect(**db_config) 
             curr = conn.cursor() 
             with conn.cursor() as curr:
                 curr.execute("SELECT pat_id, f_name, l_name, gender, address, dob, phone_nr, registration_date FROM patients WHERE pat_id = %s", (pat_id,))
@@ -183,7 +183,7 @@ def show_patient_gui(pat_id, root):
      # Funktion för att uppdatera patientinformation
     def update_patient_info():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""
                     UPDATE patients
@@ -206,7 +206,7 @@ def show_patient_gui(pat_id, root):
     #Hämtar alla specialiseringar dom finns. 
     def get_specializations():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("SELECT spec_id, spec_name FROM specialization")
                 return curr.fetchall()
@@ -220,7 +220,7 @@ def show_patient_gui(pat_id, root):
     #Hämtar alla läkare med en specifik specialisering
     def get_doctors_by_specialization(spec_id):
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost 
                     FROM doctors d 
@@ -252,7 +252,7 @@ def show_patient_gui(pat_id, root):
     #Hämtar alla läkare
     def fetch_doctors():
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
@@ -270,9 +270,9 @@ def show_patient_gui(pat_id, root):
         #Hämtar alla tillgängliga tider för denna läkaren. 
     def fetch_available_slots(doc_id):
         try:
-            conn = psycopg2.connect(**db_config)
+            conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                curr.execute("""SELECT day_of_week, time_slot FROM doctoravailability WHERE doc_id = %s AND pat_id IS NULL""", (doc_id,))
+                curr.execute("""SELECT day_of_week, time_slot, booking_date FROM doctoravailability WHERE doc_id = %s AND pat_id IS NULL""", (doc_id,))
                 slots = curr.fetchall()
             return slots
         except Exception as e:
@@ -284,7 +284,7 @@ def show_patient_gui(pat_id, root):
 
     def is_today_friday():
         #  (måndag=0, tisdag=1, ..., fredag=4)
-        return datetime.now().weekday() == 4
+        return datetime.now().weekday() == 2
 
 
     #Hanterar en vald läkare.
@@ -322,7 +322,7 @@ def show_patient_gui(pat_id, root):
         slots_listbox = tk.Listbox(booking_window, width=50, height=10)
         slots_listbox.pack(pady=10)
         for slot in available_slots:
-            slots_listbox.insert(tk.END, f"Day: {slot[0]}, Time: {slot[1]}")
+            slots_listbox.insert(tk.END, f"Day: {slot[0]}, Time: {slot[1]}, Date: {slot[2]}")
     
 
     # Tidsbokning, Går ej att boka om det INTE är en fredag.
@@ -338,12 +338,15 @@ def show_patient_gui(pat_id, root):
 
             selected_slot = available_slots[selected_slot_indices[0]]
 
-            booking_date = datetime.now().strftime('%Y-%m-%d')
+            booking_date = selected_slot[2] # innehåller booking date!!
             slot_day = selected_slot[0]
             slot_time = selected_slot[1]
             try:
-                conn = psycopg2.connect(**db_config) 
+                conn = psycopg.connect(**db_config) 
                 cursor = conn.cursor()
+                
+                cursor.execute("SELECT visit_cost FROM doctors WHERE doc_id = %s", (doctor_id,))
+                visit_cost = cursor.fetchone()[0]
 
             # Uppdatera i doctoravailability att en tid är bokad för en specifik läkare. 
                 cursor.execute("""
@@ -359,10 +362,16 @@ def show_patient_gui(pat_id, root):
                     messagebox.showerror("Error", "Slot is no longer available.")
                     return
                 doc_availability_id = doc_availability_id[0]
+                
+                # Uppdateras patientens visit_sum
+                cursor.execute("""
+                UPDATE patients
+                SET visit_sum = COALESCE(visit_sum, 0) + %s
+                WHERE pat_id = %s""", (visit_cost, pat_id))
 
                 cursor.execute("""
                 INSERT INTO historylog (doc_availability_id, pat_id, doc_id, action_type, action_time)
-                VALUES (%s, %s, %s, %s, %s)""", (doc_availability_id, pat_id, doctor_id, 'booked', booking_date))
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)""", (doc_availability_id, pat_id, doctor_id, 'booked'))
 
                 conn.commit()
                 messagebox.showinfo("Booking", f"Booking confirmed for {slot_day} at {slot_time}.")

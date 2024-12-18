@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 from GUI.admin_window import show_admin_gui
@@ -10,8 +10,8 @@ from GUI.patient_window import show_patient_gui, sign_up_patient
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 
@@ -25,7 +25,7 @@ def verify_login(user_type, user_id):
             show_admin_gui(root)
             return
         
-        conn = psycopg2.connect(**db_config) 
+        conn = psycopg.connect(**db_config) 
         curr = conn.cursor() #cursor för att hjälpa med SQL operationer, lagrar dessa values som man får av operationerna
 
         if user_type == "Doctor":
