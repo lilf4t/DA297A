@@ -157,7 +157,7 @@ def show_doctor_gui(root, doctor_id):
     
     # Visar the appointments list
     tk.Label(patient_frame, text="Appointments:", bg='lightblue').pack(pady=5)
-    appointments_list = tk.Listbox(patient_frame, width=50, height=10)
+    appointments_list = tk.Listbox(patient_frame, width=63, height=10)
     appointments_list.pack(pady=5)
 
     tk.Button(patient_frame, text="Refresh Appointments", 
