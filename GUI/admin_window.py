@@ -125,10 +125,10 @@ def show_admin_gui(root):
              days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
              times = ['09:00', '09:30', '10:00', '10:30']
              
-             # räkna ut nästa veckas datum, börjar på nästa måndag
-             today = datetime.now()
-             next_monday = today + timedelta(days=(7-today.weekday()))
-             
+             # räknar ut när nästa måndag är
+             today = datetime.now()              # hur många dagar det är till måndag
+             next_monday = today + timedelta(days=(7-today.weekday())) 
+            
              for i, day in enumerate(days):
                  current_date = next_monday + timedelta(days=i)
                  for time in times:
@@ -136,10 +136,7 @@ def show_admin_gui(root):
                      INSERT INTO doctoravailability (doc_id, day_of_week, time_slot, booking_date)
                      VALUES (%s, %s, %s, %s)""", (doc_id, day, time, current_date.date()))
              
-             
-             
             conn.commit()
-        
             messagebox.showinfo("Success", "Doctor added successfully!")
             fetch_doctors()
 
