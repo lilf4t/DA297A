@@ -6,14 +6,10 @@
 # 4. View their medical record (see all diagnosis and prescription) for each previous visit.
 # ----------------------
 
-
 import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
-
-
-
 
 db_config = {
     'host': 'pgserver.mau.se',

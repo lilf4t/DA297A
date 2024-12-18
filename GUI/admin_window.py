@@ -11,6 +11,7 @@
 import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
 
 
 db_config = {
@@ -119,6 +120,24 @@ def show_admin_gui(root):
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (doc_id, f_name, l_name, spec_id, phone_nr, visit_cost)
             )
+             
+             # när en läkare läggs till, ska hela nästa veckas schema vara available
+             days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+             times = ['09:00', '09:30', '10:00', '10:30']
+             
+             # räkna ut nästa veckas datum, börjar på nästa måndag
+             today = datetime.now()
+             next_monday = today + timedelta(days=(7-today.weekday()))
+             
+             for i, day in enumerate(days):
+                 current_date = next_monday + timedelta(days=i)
+                 for time in times:
+                     curr.execute("""
+                     INSERT INTO doctoravailability (doc_id, day_of_week, time_slot, booking_date)
+                     VALUES (%s, %s, %s, %s)""", (doc_id, day, time, current_date.date()))
+             
+             
+             
             conn.commit()
         
             messagebox.showinfo("Success", "Doctor added successfully!")
