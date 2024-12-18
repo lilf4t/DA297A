@@ -6,7 +6,8 @@
 # 4. Add a medical record for a specific patient (diagnosis, prescription)
 # ----------------------
 
-import psycopg
+
+import psycopg2
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -14,8 +15,8 @@ from tkinter import ttk, messagebox
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  # Databas namn
-    'user': 'an4263',   # Databas användarnamn, laila: an4952, fatima: an4263
-    'password': '2ecfcvkm',  # Lösenord, laila: 50owi0jd, fatima: 2ecfcvkm
+    'user': 'an4952',   # Databas användarnamn, laila: an4952, fatima: an4263
+    'password': '50owi0jd',  # Lösenord, laila: 50owi0jd, fatima: 2ecfcvkm
     'port': 5432
 }
 

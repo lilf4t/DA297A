@@ -8,17 +8,19 @@
 # 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.)
 # ----------------------
 
-import psycopg
+
+
+import psycopg2
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 
-# Databas konfiguration
 db_config = {
     'host': 'pgserver.mau.se',
-    'dbname': 'health_center_group21',  # Databas namn
-    'user': 'an4263',   # Databas användarnamn, laila: an4952, fatima: an4263
-    'password': '2ecfcvkm',  # Lösenord, laila: 50owi0jd, fatima: 2ecfcvkm
+    'dbname': 'health_center_group21',  #Namn på ditt databas
+    'user': 'an4952',   #Ditt databas username, laila:an4952, fatima:an4263
+    'password': '50owi0jd',  #Password, laila:50owi0jd, fatima:2ecfcvkm
     'port': 5432
 }
 
@@ -42,7 +44,7 @@ def show_admin_gui(root):
     #Hämtar alla specialiseringar för läkare
     def fetch_specializations():
         try:
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("SELECT spec_id, spec_name FROM specialization")
                 specializations = curr.fetchall()
@@ -58,7 +60,7 @@ def show_admin_gui(root):
     # Hämtar alla läkare
     def fetch_doctors():
         try:
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
@@ -79,7 +81,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please provide Specialization.")
             return
         try:
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("INSERT INTO specialization (spec_name) VALUES (%s)", (spec_name,))
                 conn.commit()
@@ -113,7 +115,7 @@ def show_admin_gui(root):
             spec_id = int(spec_id)
             visit_cost = float(visit_cost) if visit_cost else 0.0  # Default blit 0.0 om man inte lägger till pris. 
         
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
              curr.execute(
                 "INSERT INTO doctors (doc_id, f_name, l_name, spec_id, phone_nr, visit_cost) "
@@ -144,7 +146,7 @@ def show_admin_gui(root):
                 raise ValueError("Doctor ID doesn't exist. Try again!")
             doc_id = int(doc_id)
 
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("DELETE FROM doctors WHERE doc_id = %s", (doc_id,))
                 conn.commit()
@@ -159,13 +161,21 @@ def show_admin_gui(root):
     #Hämtar patienter. 
     def fetch_patients():
         try:
-            conn = psycopg.connect(**db_config)
-            with conn.cursor() as curr:
-                curr.execute("""SELECT pat_id, f_name, l_name, gender, phone_nr, dob, registration_date FROM patients """)
+            conn = psycopg2.connect(**db_config)
+            with conn.cursor() as curr: 
+                #COALENSCE(SUM(..),0) kollar om det inte finns några kostnader så visas det 0, annars summera.
+                #LEFT JOIN  - inkludera även patienter som inte har medical records
+                #GROUP BY - grupperar resultaten per patient.
+                curr.execute("""SELECT p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, 
+                            COALESCE(SUM(d.visit_cost), 0) AS visit_sum FROM patients p 
+                            LEFT JOIN medicalrecords m ON p.pat_id = m.pat_id
+                            LEFT JOIN doctors d ON m.doc_id = d.doc_id
+                            GROUP BY p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date
+                            ORDER BY p.pat_id """)
                 patients = curr.fetchall()
                 patient_list.delete(0, tk.END)
-                for pat_id, f_name, l_name, gender, phone_nr, dob, registration_date in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
-                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}")
+                for pat_id, f_name, l_name, gender, phone_nr, dob, registration_date, visit_sum in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
+                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}, "f"Visit costs: {visit_sum} SEK")
                         patient_list.insert(tk.END, patient_info)
         except Exception as error:
             messagebox.showerror("Error", str(error))
@@ -179,7 +189,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""SELECT medicalrecords.rec_id, doctors.doc_id, medicalrecords.diagnosis, medicalrecords.prescription, doctoravailability.booking_date, doctoravailability.time_slot FROM medicalrecords JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
                 JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
@@ -190,6 +200,9 @@ def show_admin_gui(root):
                     for rec_id, doc_id, diagnosis, prescription, booking_date, time_slot in records:
                         record_info = ( f"Record ID: {rec_id}, Doctor ID: {doc_id}, Diagnosis: {diagnosis}, Prescription: {prescription}, Visit Date: {booking_date} at {time_slot}")
                         medical_record_list.insert(tk.END, record_info)
+                else: 
+                    medical_record_list.insert(tk.END, "No Medical Records found for this patient.")
+
         except Exception as error:
             messagebox.showerror("Error", str(error))
         finally:
@@ -202,7 +215,7 @@ def show_admin_gui(root):
             messagebox.showerror("Error", "Please enter a patient ID.")
             return
         try:
-            conn = psycopg.connect(**db_config)
+            conn = psycopg2.connect(**db_config)
             with conn.cursor() as curr:
                 # fatima kolla upp det
                 curr.execute("""SELECT historylog.log_id, historylog.doc_id, doctors.f_name, doctors.l_name, historylog.action_type, historylog.action_time, patients.f_name, patients.l_name, doctoravailability.booking_date, doctoravailability.time_slot FROM historylog JOIN patients ON historylog.pat_id = patients.pat_id JOIN doctors ON historylog.doc_id = doctors.doc_id JOIN doctoravailability ON historylog.doc_availability_id = doctoravailability.doc_availability_id WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
@@ -241,7 +254,7 @@ def show_admin_gui(root):
     tk.Label(right_frame, text="Doctors").pack(pady=5)
     doctor_list = tk.Listbox(right_frame, width=100, height=5)
     doctor_list.pack(padx=100, pady=5, fill=tk.BOTH, expand=True)
-    tk.Button(right_frame, text="Show Doctors", command=fetch_doctors).pack(pady=10)
+    fetch_doctors()
 
     tk.Label(right_frame, text="Doctor ID:").pack(padx=10, pady=5)
     doc_id_entry = tk.Entry(right_frame)
@@ -269,18 +282,21 @@ def show_admin_gui(root):
 
     tk.Button(right_frame, text="Add Doctor", command=add_doctor).pack(pady=10)
 
-    tk.Label(right_frame, text="Doctor ID to Remove:").pack(padx=10, pady=5)
-    doctor_id_entry = tk.Entry(right_frame)
-    doctor_id_entry.pack(padx=10, pady=5)
+  # Formulär för att ta bort läkare (ny frame)
+    remove_doctor_frame = tk.Frame(right_frame)
+    remove_doctor_frame.pack(fill=tk.X, pady=10)
 
-    tk.Button(right_frame, text="Remove Doctor", command=delete_doctor).pack(pady=10)
+    tk.Label(remove_doctor_frame, text="Doctor ID to Remove:").grid(row=0, column=0, padx=5, pady=5)
+    doctor_id_entry = tk.Entry(remove_doctor_frame)
+    doctor_id_entry.grid(row=0, column=1, padx=5, pady=5)
+    tk.Button(remove_doctor_frame, text="Remove Doctor", command=delete_doctor).grid(row=0, column=2, padx=5, pady=5)
 
 
     #Patienters sida
     tk.Label(patient_frame, text="Patients").pack(pady=5)
     patient_list = tk.Listbox(patient_frame, width=100, height=5)
     patient_list.pack(padx=100, pady=5, fill=tk.BOTH, expand=True)
-    tk.Button(patient_frame, text="Show Patients", command=fetch_patients).pack(pady=5)
+    fetch_patients()
     
     patient_id_label = tk.Label(patient_frame, text="Enter Patient ID:")
     patient_id_label.pack(pady=5)
