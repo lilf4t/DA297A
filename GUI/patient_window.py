@@ -106,7 +106,6 @@ def show_patient_gui(pat_id, root):
     # Skapa nytt fönster
     patient_window = tk.Toplevel(root)
     patient_window.title("Patient View")
-    patient_window.configure(bg='lightblue')
 
     # Skapa flikar (Tabs)
     tab_control = ttk.Notebook(patient_window)
