@@ -44,10 +44,10 @@ def show_doctor_gui(root, doctor_id):
     notebook = ttk.Notebook(doctor_window)
     notebook.pack(fill=tk.BOTH, expand=True)
 
-    doctor_frame = tk.Frame(notebook, bg='lightblue')
-    patient_frame = tk.Frame(notebook, bg='lightblue')
-    notebook.add(doctor_frame, text="Main tab") # Main tab
-    notebook.add(patient_frame, text="Schedule") # Läkarens schema
+    main_tab = tk.Frame(notebook, bg='lightblue')
+    schedule_tab = tk.Frame(notebook, bg='lightblue')
+    notebook.add(main_tab, text="Main tab") # Läkarens patiener, patienters medical records
+    notebook.add(schedule_tab, text="Schedule") # Läkarens schema
     
     # Lägga till tillgänglighet i schemat
     def add_availability():
@@ -128,7 +128,7 @@ def show_doctor_gui(root, doctor_id):
                 conn.close()
                         
     # Labels, frames, knappar för schemat
-    availability_frame = tk.Frame(patient_frame, bg='lightblue')
+    availability_frame = tk.Frame(schedule_tab, bg='lightblue')
     availability_frame.pack(pady=10)
 
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
@@ -156,14 +156,179 @@ def show_doctor_gui(root, doctor_id):
               command=remove_availability).pack(pady=5)
     
     # Visar the appointments list
-    tk.Label(patient_frame, text="Appointments:", bg='lightblue').pack(pady=5)
-    appointments_list = tk.Listbox(patient_frame, width=63, height=10)
+    tk.Label(schedule_tab, text="Appointments:", bg='lightblue').pack(pady=5)
+    appointments_list = tk.Listbox(schedule_tab, width=63, height=10)
     appointments_list.pack(pady=5)
 
-    tk.Button(patient_frame, text="Refresh Appointments", 
+    tk.Button(schedule_tab, text="Refresh Appointments",
               command=show_appointments).pack(pady=5)
 
     # Visar appointments från början
     show_appointments()
+    
+    def fetch_doctor_patients(doctor_id, patient_list):
+        try:
+            conn = psycopg.connect(**db_config)
+            with conn.cursor() as curr:
+                # Join doctoravailability with patients to get all patients who have booked with this doctor
+                curr.execute("""
+                    SELECT DISTINCT p.pat_id, p.f_name, p.l_name, p.gender, p.address, p.phone_nr, p.dob, p.registration_date, COALESCE(visit_sum, 0.00) AS visit_sum
+                    FROM patients p
+                    JOIN doctoravailability da ON p.pat_id = da.pat_id
+                    WHERE da.doc_id = %s
+                    ORDER BY p.pat_id
+                """, (doctor_id,))
+                
+                patients = curr.fetchall()
+                patient_list.delete(0, tk.END)
+                
+                if patients:
+                    for pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date, visit_sum in patients:
+                        patient_info = f"ID: {pat_id}, Name: {f_name} {l_name}, Gender: {gender}, Address: {address}, Phone: {phone_nr}, DOB: {dob}, Registration date: {registration_date}, Visit sum: {visit_sum} SEK"
+                        patient_list.insert(tk.END, patient_info)
+                else:
+                    patient_list.insert(tk.END, "No patients found")
+                    
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            if conn is not None:
+                conn.close()
+                
+    # för att visa läkarens patienter            
+    patient_frame = tk.Frame(main_tab, bg='lightblue')
+    patient_frame.pack(pady=10)
+    
+    tk.Label(main_tab, text="My Patients:").pack(pady=5)
+    patient_list = tk.Listbox(main_tab, width=150, height=10)
+    patient_list.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+    
+    # Visa patienter
+    fetch_doctor_patients(doctor_id, patient_list)
+    
+
+    def fetch_medical_records(patient_id_entry, medical_record_list):
+        pat_id = patient_id_entry.get().strip()
+        if not pat_id:
+            messagebox.showerror("Error", "Please enter a patient ID.")
+            return
+        try:
+            conn = psycopg.connect(**db_config)
+            with conn.cursor() as curr:
+                # Modified query to only show records where this doctor was involved
+                curr.execute("""
+                    SELECT medicalrecords.rec_id, doctors.doc_id, 
+                           medicalrecords.diagnosis, medicalrecords.prescription, 
+                           doctoravailability.booking_date, doctoravailability.time_slot 
+                    FROM medicalrecords 
+                    JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
+                    JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
+                        AND doctoravailability.pat_id = medicalrecords.pat_id 
+                    WHERE medicalrecords.pat_id = %s 
+                    AND medicalrecords.doc_id = %s""", (pat_id, doctor_id))
+                
+                records = curr.fetchall()
+                medical_record_list.delete(0, tk.END)
+                if records:
+                    for rec_id, doc_id, diagnosis, prescription, booking_date, time_slot in records:
+                        record_info = (f"Record ID: {rec_id}, Diagnosis: {diagnosis}, "
+                                     f"Prescription: {prescription}, "
+                                     f"Visit Date: {booking_date} at {time_slot}")
+                        medical_record_list.insert(tk.END, record_info)
+                else: 
+                    medical_record_list.insert(tk.END, "No Medical Records found for this patient.")
+
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            if conn is not None:
+                conn.close()
+                
+   # Visa medical records
+    medical_frame = tk.Frame(main_tab) 
+    medical_frame.pack(pady=10)
+
+    patient_id_label = tk.Label(medical_frame, text="Enter Patient ID:")
+    patient_id_label.pack(pady=5)
+    patient_id_entry = tk.Entry(medical_frame)
+    patient_id_entry.pack(pady=5)
+
+    tk.Label(medical_frame, text="Medical Records:").pack(pady=5)
+    medical_record_list = tk.Listbox(medical_frame, width=100, height=10)
+    medical_record_list.pack(pady=5)
+
+    tk.Button(medical_frame, text="Show Medical Records", 
+             command=lambda: fetch_medical_records(patient_id_entry, medical_record_list)).pack(pady=5)
+
+
+    def add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry):
+        pat_id = patient_id_entry.get().strip()
+        diagnosis = diagnosis_entry.get().strip()
+        prescription = prescription_entry.get().strip()
+        
+        if not all([pat_id, diagnosis, prescription]):
+            messagebox.showerror("Error", "All fields are required")
+            return
+            
+        try:
+            conn = psycopg.connect(**db_config)
+            with conn.cursor() as curr:
+                # Kolla så appointment är current date för att kunna lägga till ny medical record
+                curr.execute("""
+                    SELECT doc_availability_id 
+                    FROM doctoravailability 
+                    WHERE doc_id = %s 
+                    AND pat_id = %s 
+                    AND booking_date = CURRENT_DATE
+                """, (doctor_id, pat_id))
+                
+                appointment = curr.fetchone()
+                if not appointment:
+                    messagebox.showerror("Error", "No appointment found for this patient today")
+                    return
+                
+                # Add the medical record
+                curr.execute("""
+                    INSERT INTO medicalrecords (pat_id, doc_id, diagnosis, prescription)
+                    VALUES (%s, %s, %s, %s)
+                """, (pat_id, doctor_id, diagnosis, prescription))
+                
+                conn.commit()
+                messagebox.showinfo("Success", "Medical record added successfully")
+                
+                # Clear the entry fields
+                diagnosis_entry.delete(0, tk.END)
+                prescription_entry.delete(0, tk.END)
+                
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            if conn is not None:
+                conn.close()
+                
+    # För att lägga till ny medical record
+    record_frame = tk.Frame(medical_frame)
+    record_frame.pack(pady=20)
+    
+    tk.Label(record_frame, text="Diagnosis:").pack()
+    diagnosis_entry = tk.Entry(record_frame, width=50)
+    diagnosis_entry.pack(pady=5)
+    
+    tk.Label(record_frame, text="Prescription:").pack()
+    prescription_entry = tk.Entry(record_frame, width=50)
+    prescription_entry.pack(pady=5)
+
+    tk.Button(record_frame, text="Add Medical Record", 
+        command=lambda: add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry)).pack(pady=10)
+    
+
+
+    
+
+
+    
+
+    
+    
     
     

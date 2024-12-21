@@ -5,8 +5,6 @@ from GUI.admin_window import show_admin_gui
 from GUI.doctor_window import show_doctor_gui
 from GUI.patient_window import show_patient_gui, sign_up_patient
 
-
-
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas

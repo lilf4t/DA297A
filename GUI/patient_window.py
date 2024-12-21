@@ -111,7 +111,7 @@ def show_patient_gui(pat_id, root):
 
     tab_control.add(profile_tab, text='Profile')
     tab_control.add(appointments_tab, text='Appointments')
-    tab_control.add(diagnoses_tab, text='Diagnoses')
+    tab_control.add(diagnoses_tab, text='My medical records')
     tab_control.pack(expand=1, fill="both")
 
     f_name_var = tk.StringVar()
@@ -122,6 +122,49 @@ def show_patient_gui(pat_id, root):
     dob_var = tk.StringVar()
     reg_date_var = tk.StringVar()
     pat_id_var = tk.StringVar()
+    
+    tk.Label(diagnoses_tab, text="My Medical Records").pack(pady=5)
+    medical_record_list = tk.Listbox(diagnoses_tab, width=100, height=15)
+    medical_record_list.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+        
+    def fetch_patient_medical_records():
+        try:
+            conn = psycopg.connect(**db_config)
+            with conn.cursor() as curr:
+                curr.execute("""
+                    SELECT medicalrecords.rec_id, doctors.f_name, doctors.l_name,
+                            medicalrecords.diagnosis, medicalrecords.prescription, 
+                            doctoravailability.booking_date, doctoravailability.time_slot 
+                    FROM medicalrecords 
+                    JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
+                    JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
+                        AND doctoravailability.pat_id = medicalrecords.pat_id 
+                    WHERE medicalrecords.pat_id = %s
+                    ORDER BY doctoravailability.booking_date DESC""", (pat_id,))
+                
+                records = curr.fetchall()
+                medical_record_list.delete(0, tk.END)
+                if records:
+                    for rec_id, doc_fname, doc_lname, diagnosis, prescription, booking_date, time_slot in records:
+                        record_info = (f"Record ID: {rec_id}, Doctor: {doc_fname} {doc_lname}, "
+                                        f"Diagnosis: {diagnosis}, Prescription: {prescription}, "
+                                        f"Visit Date: {booking_date} at {time_slot}")
+                        medical_record_list.insert(tk.END, record_info)
+                else: 
+                    medical_record_list.insert(tk.END, "No Medical Records found.")
+
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            if conn is not None:
+                conn.close()
+        
+    # Add refresh button
+    tk.Button(diagnoses_tab, text="Refresh Medical Records", 
+             command=fetch_patient_medical_records).pack(pady=5)
+             
+    # Initial load of medical records
+    fetch_patient_medical_records()
 
     # Hämtar  patient information med pat_id.
     def fetch_and_display_patient_info():
@@ -195,9 +238,8 @@ def show_patient_gui(pat_id, root):
     # Uppdatera knapp
     tk.Button(profile_tab, text="Update Info", command=update_patient_info).grid(row=8, column=1)
 
-    # Lägg till widgets för appointments och diagnoses flikarna (kan implementeras senare)
+    # Lägg till widgets för appointments och diagnoses flikarna 
     tk.Label(appointments_tab, text="---Select a Specifik Specialization---").pack()
-    tk.Label(diagnoses_tab, text="Diagnoses information will be here").pack()
 
     #Hämtar alla specialiseringar dom finns. 
     def get_specializations():
@@ -324,9 +366,9 @@ def show_patient_gui(pat_id, root):
     # Tidsbokning, Går ej att boka om det INTE är en fredag.
         def book_appointment():
              #KOMMENTERA BORT IF-SATSEN OM DU VILL TESTA BOKA.
-            if not is_today_friday():   
-                messagebox.showwarning("Unavailable", "Bookings can only be made on Fridays for the upcoming week.")
-                return
+            #if not is_today_friday():   
+            #    messagebox.showwarning("Unavailable", "Bookings can only be made on Fridays for the upcoming week.")
+            #    return
             selected_slot_indices = slots_listbox.curselection()
             if not selected_slot_indices:
                 messagebox.showwarning("Selection Error", "Please select a time slot.")
@@ -398,6 +440,8 @@ def show_patient_gui(pat_id, root):
 
     doctor_list.bind("<<ListboxSelect>>", handle_doctor_selection)
     doctors_listbox.bind("<<ListboxSelect>>", handle_doctor_selection)
+    
+    
 
   
 

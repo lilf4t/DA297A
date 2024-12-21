@@ -62,7 +62,7 @@ def show_admin_gui(root):
             with conn.cursor() as curr:
                 curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
-                doctor_list.delete(0, tk.END)
+                doctor_list.delete(0, tk.END) 
                 for doc_id, f_name, l_name, spec_name, phone_nr, visit_cost in doctors:
                         doctor_info = (f"ID: {doc_id}, Name: {f_name} {l_name}, "f"Specialization: {spec_name}, Phone: {phone_nr}, "f"Visit Cost: {visit_cost}")
                         doctor_list.insert(tk.END, doctor_info)
@@ -178,15 +178,15 @@ def show_admin_gui(root):
             with conn.cursor() as curr: 
                 #LEFT JOIN  - inkludera även patienter som inte har medical records
                 #GROUP BY - grupperar resultaten per patient.
-                curr.execute("""SELECT p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, visit_sum FROM patients p 
+                curr.execute("""SELECT p.pat_id, p.f_name, p.l_name, p.gender, p.address, p.phone_nr, p.dob, p.registration_date, COALESCE(visit_sum, 0.00) AS visit_sum FROM patients p 
                             LEFT JOIN medicalrecords m ON p.pat_id = m.pat_id
                             LEFT JOIN doctors d ON m.doc_id = d.doc_id
                             GROUP BY p.pat_id, p.f_name, p.l_name, p.gender, p.phone_nr, p.dob, p.registration_date, visit_sum
                             ORDER BY p.pat_id """)
                 patients = curr.fetchall()
                 patient_list.delete(0, tk.END)
-                for pat_id, f_name, l_name, gender, phone_nr, dob, registration_date, visit_sum in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
-                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}, "f"Visit sum: {visit_sum} SEK")
+                for pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date, visit_sum in patients: #LÄGG ÄVEN TILL SUM OF VISIT COST.
+                        patient_info = (f"Medical number: {pat_id}, Full name: {f_name} {l_name}, Gender: {gender}, Address: {address}, Phone: {phone_nr}, "f"Date of birth: {dob}", f"Registration date: {registration_date}, "f"Visit sum: {visit_sum} SEK")
                         patient_list.insert(tk.END, patient_info)
         except Exception as error:
             messagebox.showerror("Error", str(error))
