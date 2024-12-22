@@ -121,7 +121,7 @@ def show_admin_gui(root):
                 (doc_id, f_name, l_name, spec_id, phone_nr, visit_cost)
             )
              
-             # när en läkare läggs till, ska hela nästa veckas schema vara available
+             # när en läkare läggs till, ska hela nästa veckas schema vara available !!
              days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
              times = ['09:00', '09:30', '10:00', '10:30']
              
@@ -202,14 +202,26 @@ def show_admin_gui(root):
         try:
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                curr.execute("""SELECT medicalrecords.rec_id, doctors.doc_id, medicalrecords.diagnosis, medicalrecords.prescription, doctoravailability.booking_date, doctoravailability.time_slot FROM medicalrecords JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
-                JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
-                    AND doctoravailability.pat_id = medicalrecords.pat_id WHERE medicalrecords.pat_id = %s""", (pat_id,))
+                curr.execute("""
+                    SELECT DISTINCT medicalrecords.rec_id, doctors.doc_id, medicalrecords.diagnosis, 
+                             medicalrecords.prescription, medicalrecords.description, doctoravailability.booking_date, 
+                             doctoravailability.time_slot 
+                    FROM medicalrecords 
+                    JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
+                    JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
+                         AND doctoravailability.pat_id = medicalrecords.pat_id
+                         AND doctoravailability.booking_date = (
+                            SELECT MIN(booking_date) 
+                            FROM doctoravailability
+                            WHERE doctoravailability.pat_id = medicalrecords.pat_id
+                            AND doctoravailability.doc_id = medicalrecords.doc_id
+                        )
+                    WHERE medicalrecords.pat_id = %s""", (pat_id,))
                 records = curr.fetchall()
                 medical_record_list.delete(0, tk.END)
                 if records:
-                    for rec_id, doc_id, diagnosis, prescription, booking_date, time_slot in records:
-                        record_info = ( f"Record ID: {rec_id}, Doctor ID: {doc_id}, Diagnosis: {diagnosis}, Prescription: {prescription}, Visit Date: {booking_date} at {time_slot}")
+                    for rec_id, doc_id, diagnosis, prescription, description, booking_date, time_slot in records:
+                        record_info = ( f"Record ID: {rec_id}, Doctor ID: {doc_id}, Diagnosis: {diagnosis}, Prescription: {prescription}, Description: {description}, Visit Date: {booking_date} at {time_slot}")
                         medical_record_list.insert(tk.END, record_info)
                 else: 
                     medical_record_list.insert(tk.END, "No Medical Records found for this patient.")
@@ -229,7 +241,13 @@ def show_admin_gui(root):
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 # fatima kolla upp det
-                curr.execute("""SELECT historylog.log_id, historylog.doc_id, doctors.f_name, doctors.l_name, historylog.action_type, historylog.action_time, patients.f_name, patients.l_name, doctoravailability.booking_date, doctoravailability.time_slot FROM historylog JOIN patients ON historylog.pat_id = patients.pat_id JOIN doctors ON historylog.doc_id = doctors.doc_id JOIN doctoravailability ON historylog.doc_availability_id = doctoravailability.doc_availability_id WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
+                curr.execute("""SELECT historylog.log_id, historylog.doc_id, doctors.f_name, doctors.l_name, 
+                             historylog.action_type, historylog.action_time, patients.f_name, patients.l_name, 
+                             doctoravailability.booking_date, doctoravailability.time_slot 
+                             FROM historylog JOIN patients ON historylog.pat_id = patients.pat_id 
+                             JOIN doctors ON historylog.doc_id = doctors.doc_id 
+                             JOIN doctoravailability ON historylog.doc_availability_id = doctoravailability.doc_availability_id 
+                             WHERE historylog.pat_id = %s AND historylog.action_type = 'booked'""", (pat_id,))
                 appointments = curr.fetchall()
                 appointment_list.delete(0, tk.END)
                 if appointments:

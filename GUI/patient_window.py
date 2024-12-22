@@ -3,7 +3,7 @@
 # 1. Sign up for the health center by entering their  first name, last name, gender (F, M or NB), address, phone nr, birthdate (registration date should be recorded) (can only sign up once, so patient id should be unique) - done
 # 2. See all their info and edit the information except for Patient ID and registration date. - done
 # 3. Book an appointment for a specific doctor. They should see a list of all doctors, their specilization and visit cost. See the available days and times for visiting the doctor and then book the appointment. (booking can only be made on a friday of the week for the coming week, should be changeable) - done
-# 4. View their medical record (see all diagnosis and prescription) for each previous visit.
+# 4. View their medical record (see all diagnosis and prescription) for each previous visit. - done
 # ----------------------
 
 import psycopg
@@ -54,7 +54,10 @@ def sign_up_patient(root, pre_filled_id=None):
             conn = psycopg.connect(**db_config) 
             curr = conn.cursor() 
             with conn.cursor() as curr:
-                curr.execute("""INSERT INTO patients (pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",(pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date))
+                curr.execute("""INSERT INTO patients (pat_id, f_name, l_name, gender, address, phone_nr, dob, 
+                             registration_date) 
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                             (pat_id, f_name, l_name, gender, address, phone_nr, dob, registration_date))
                 conn.commit()
                 messagebox.showinfo("Success", "Information updated successfully!")
                 sign_up_window.destroy()
@@ -132,22 +135,30 @@ def show_patient_gui(pat_id, root):
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""
-                    SELECT medicalrecords.rec_id, doctors.f_name, doctors.l_name,
-                            medicalrecords.diagnosis, medicalrecords.prescription, 
+                    SELECT DISTINCT medicalrecords.rec_id, doctors.f_name, doctors.l_name,
+                            medicalrecords.diagnosis, medicalrecords.prescription, medicalrecords.description,
                             doctoravailability.booking_date, doctoravailability.time_slot 
                     FROM medicalrecords 
                     JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
-                    JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
-                        AND doctoravailability.pat_id = medicalrecords.pat_id 
+                    JOIN doctoravailability
+                        ON doctoravailability.doc_id = medicalrecords.doc_id 
+                        AND doctoravailability.pat_id = medicalrecords.pat_id
+                        AND doctoravailability.booking_date = (
+                            SELECT MIN(booking_date) 
+                            FROM doctoravailability
+                            WHERE doctoravailability.pat_id = medicalrecords.pat_id
+                            AND doctoravailability.doc_id = medicalrecords.doc_id
+                        )
                     WHERE medicalrecords.pat_id = %s
-                    ORDER BY doctoravailability.booking_date DESC""", (pat_id,))
+                    ORDER BY medicalrecords.rec_id DESC""", (pat_id,))
                 
                 records = curr.fetchall()
                 medical_record_list.delete(0, tk.END)
                 if records:
-                    for rec_id, doc_fname, doc_lname, diagnosis, prescription, booking_date, time_slot in records:
+                    for rec_id, doc_fname, doc_lname, diagnosis, prescription, description, booking_date, time_slot in records:
                         record_info = (f"Record ID: {rec_id}, Doctor: {doc_fname} {doc_lname}, "
                                         f"Diagnosis: {diagnosis}, Prescription: {prescription}, "
+                                        f"Description: {description}, "
                                         f"Visit Date: {booking_date} at {time_slot}")
                         medical_record_list.insert(tk.END, record_info)
                 else: 
@@ -158,12 +169,8 @@ def show_patient_gui(pat_id, root):
         finally:
             if conn is not None:
                 conn.close()
-        
-    # Add refresh button
-    tk.Button(diagnoses_tab, text="Refresh Medical Records", 
-             command=fetch_patient_medical_records).pack(pady=5)
              
-    # Initial load of medical records
+    # Initiala medical records
     fetch_patient_medical_records()
 
     # Hämtar  patient information med pat_id.
@@ -239,7 +246,7 @@ def show_patient_gui(pat_id, root):
     tk.Button(profile_tab, text="Update Info", command=update_patient_info).grid(row=8, column=1)
 
     # Lägg till widgets för appointments och diagnoses flikarna 
-    tk.Label(appointments_tab, text="---Select a Specifik Specialization---").pack()
+    tk.Label(appointments_tab, text="---Select a Specific Specialization---").pack()
 
     #Hämtar alla specialiseringar dom finns. 
     def get_specializations():
@@ -383,40 +390,48 @@ def show_patient_gui(pat_id, root):
                 conn = psycopg.connect(**db_config) 
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT visit_cost FROM doctors WHERE doc_id = %s", (doctor_id,))
-                visit_cost = cursor.fetchone()[0]
+                # TRANSACTION
+                try:
+                    cursor.execute("BEGIN TRANSACTION")
+                    
+                    cursor.execute("SELECT visit_cost FROM doctors WHERE doc_id = %s", (doctor_id,))
+                    visit_cost = cursor.fetchone()[0]
+                    # Uppdatera i doctoravailability att en tid är bokad för en specifik läkare. 
+                    cursor.execute("""
+                    UPDATE doctoravailability
+                    SET pat_id = %s, booking_date = %s
+                    WHERE doc_id = %s AND day_of_week = %s AND time_slot = %s AND pat_id IS NULL
+                    RETURNING doc_availability_id""", (pat_id, booking_date, doctor_id, slot_day, slot_time))
 
-            # Uppdatera i doctoravailability att en tid är bokad för en specifik läkare. 
-                cursor.execute("""
-                UPDATE doctoravailability
-                SET pat_id = %s, booking_date = %s
-                WHERE doc_id = %s AND day_of_week = %s AND time_slot = %s AND pat_id IS NULL
-                RETURNING doc_availability_id""", (pat_id, booking_date, doctor_id, slot_day, slot_time))
-
-
-            # Insert i historylog så att det loggas. 
-                doc_availability_id = cursor.fetchone() # Assumes this is an auto-increment field
-                if not doc_availability_id:
-                    messagebox.showerror("Error", "Slot is no longer available.")
-                    return
-                doc_availability_id = doc_availability_id[0]
+                    # Insert i historylog så att det loggas. 
+                    doc_availability_id = cursor.fetchone() # Assumes this is an auto-increment field
+                    if not doc_availability_id:
+                        messagebox.showerror("Error", "Slot is no longer available.")
+                        return
+                    doc_availability_id = doc_availability_id[0]
                 
-                # Uppdateras patientens visit_sum varje gång de bokar
-                cursor.execute("""
-                UPDATE patients
-                SET visit_sum = COALESCE(visit_sum, 0) + %s
-                WHERE pat_id = %s""", (visit_cost, pat_id))
+                    # Uppdateras patientens visit_sum varje gång de bokar
+                    cursor.execute("""
+                    UPDATE patients
+                    SET visit_sum = COALESCE(visit_sum, 0) + %s
+                    WHERE pat_id = %s""", (visit_cost, pat_id))
 
-                cursor.execute("""
-                INSERT INTO historylog (doc_availability_id, pat_id, doc_id, action_type, action_time)
-                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)""", (doc_availability_id, pat_id, doctor_id, 'booked'))
-
-                conn.commit()
-                messagebox.showinfo("Booking", f"Booking confirmed for {slot_day} at {slot_time}.")
-            except Exception as e:
-                messagebox.showerror("Error", str(e))
+                    cursor.execute("""
+                    INSERT INTO historylog (doc_availability_id, pat_id, doc_id, action_type, action_time)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)""", (doc_availability_id, pat_id, doctor_id, 'booked'))
+                    
+                    # COMMIT TRANSACTION
+                    cursor.execute("COMMIT;")
+                    messagebox.showinfo("Booking", f"Booking confirmed for {slot_day} at {slot_time}.")
+                    
+                except Exception as e:
+                    # ROLLBACK TRANSACTION
+                    cursor.execute("ROLLBACK;")
+                    messagebox.showerror("Error", str(e))
+                    
             finally:
-                conn.close()
+                if conn:
+                    conn.close()
             booking_window.destroy()
 
         tk.Button(booking_window, text="Book Appointment", command=book_appointment).pack(pady=20)

@@ -1,9 +1,10 @@
 import psycopg
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from GUI.admin_window import show_admin_gui
 from GUI.doctor_window import show_doctor_gui
 from GUI.patient_window import show_patient_gui, sign_up_patient
+from GUI.history_log import show_history_log
 
 db_config = {
     'host': 'pgserver.mau.se',
@@ -88,5 +89,12 @@ user_id_entry.grid(row=1, column=1, padx=10, pady=10, columnspan=2)
 # login knappar
 login_button = tk.Button(root, text="Login", command=login)
 login_button.grid(row=1, column=3, columnspan=3, pady=20)
+
+
+# för history log
+history_log_btn = tk.Button(root, text="View appointments history log", command=lambda: show_history_log(root)
+)
+history_log_btn.grid(row=2, column=0, columnspan=3, pady=20)
+
 
 root.mainloop()

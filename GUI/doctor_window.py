@@ -2,8 +2,8 @@
 # ----------------------
 # 1. Define their availabilty for each day of the week and time between 09:00-10:30 (can define/change their availability only if there is no booked appointment) - done
 # 2. See a list of all upcoming appointments - done
-# 3. See a list of all medical record related to a specific patient
-# 4. Add a medical record for a specific patient (diagnosis, prescription)
+# 3. See a list of all medical record related to a specific patient - done
+# 4. Add a medical record for a specific patient (diagnosis, prescription) - done
 # ----------------------
 
 import psycopg
@@ -49,6 +49,9 @@ def show_doctor_gui(root, doctor_id):
     notebook.add(main_tab, text="Main tab") # Läkarens patiener, patienters medical records
     notebook.add(schedule_tab, text="Schedule") # Läkarens schema
     
+    
+    #----------------------------------Läkarens schema---------------------------------------------
+    
     # Lägga till tillgänglighet i schemat
     def add_availability():
         day = day_var.get()
@@ -65,7 +68,7 @@ def show_doctor_gui(root, doctor_id):
                 """, (doctor_id, day, time, date))
                 
                 if curr.fetchone():
-                    messagebox.showerror("Error", "This time slot is already defined!")
+                    messagebox.showerror("Error", "This time slot is already booked!")
                     return
                 
                 # Lägg till ny availability med dag, tid och datum
@@ -86,8 +89,7 @@ def show_doctor_gui(root, doctor_id):
         date = date_entry.get()
         
         if not date:
-            messagebox.showerror("Error", "Please enter a valid date.")
-            return
+            messagebox.showerror("Error", "Please enter a valid date")
         
         try:
             conn = psycopg.connect(**db_config)
@@ -105,18 +107,18 @@ def show_doctor_gui(root, doctor_id):
                 conn.close()
 
     def show_appointments():
-        appointments_list.delete(0, tk.END)
+        appointments_list.delete(0, tk.END) # förhindrar duplicering
         try:
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
                 curr.execute("""
-                    SELECT day_of_week, time_slot, pat_id, booking_date 
+                    SELECT DISTINCT day_of_week, time_slot, pat_id, booking_date 
                     FROM doctoravailability 
                     WHERE doc_id = %s 
                     ORDER BY booking_date, time_slot
                 """, (doctor_id,))
-                appointments = curr.fetchall()
                 
+                appointments = curr.fetchall()
                 for day, time, pat_id, date in appointments:
                     status = "BOOKED" if pat_id else "AVAILABLE"
                     appointments_list.insert(tk.END, 
@@ -160,17 +162,17 @@ def show_doctor_gui(root, doctor_id):
     appointments_list = tk.Listbox(schedule_tab, width=63, height=10)
     appointments_list.pack(pady=5)
 
-    tk.Button(schedule_tab, text="Refresh Appointments",
-              command=show_appointments).pack(pady=5)
-
     # Visar appointments från början
     show_appointments()
+    
+    
+    #----------------------------------Visa läkarnes patieneter i main tab---------------------------------------------
     
     def fetch_doctor_patients(doctor_id, patient_list):
         try:
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                # Join doctoravailability with patients to get all patients who have booked with this doctor
+                # Join doctoravailability med patienter för att få alla patienter som har bokat med denna läkaren
                 curr.execute("""
                     SELECT DISTINCT p.pat_id, p.f_name, p.l_name, p.gender, p.address, p.phone_nr, p.dob, p.registration_date, COALESCE(visit_sum, 0.00) AS visit_sum
                     FROM patients p
@@ -215,24 +217,32 @@ def show_doctor_gui(root, doctor_id):
         try:
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                # Modified query to only show records where this doctor was involved
+                #  query för att bara visa records där denna läkare var involverad
                 curr.execute("""
-                    SELECT medicalrecords.rec_id, doctors.doc_id, 
-                           medicalrecords.diagnosis, medicalrecords.prescription, 
+                    SELECT DISTINCT medicalrecords.rec_id, doctors.doc_id, 
+                           medicalrecords.diagnosis, medicalrecords.prescription, medicalrecords.description, 
                            doctoravailability.booking_date, doctoravailability.time_slot 
                     FROM medicalrecords 
                     JOIN doctors ON medicalrecords.doc_id = doctors.doc_id
-                    JOIN doctoravailability ON doctoravailability.doc_id = medicalrecords.doc_id 
+                    JOIN doctoravailability 
+                    ON doctoravailability.doc_id = medicalrecords.doc_id 
                         AND doctoravailability.pat_id = medicalrecords.pat_id 
+                        AND doctoravailability.booking_date = (
+                            SELECT MIN(booking_date) 
+                            FROM doctoravailability
+                            WHERE doctoravailability.pat_id = medicalrecords.pat_id
+                            AND doctoravailability.doc_id = medicalrecords.doc_id
+                        )
                     WHERE medicalrecords.pat_id = %s 
                     AND medicalrecords.doc_id = %s""", (pat_id, doctor_id))
                 
                 records = curr.fetchall()
                 medical_record_list.delete(0, tk.END)
                 if records:
-                    for rec_id, doc_id, diagnosis, prescription, booking_date, time_slot in records:
+                    for rec_id, doc_id, diagnosis, prescription, description, booking_date, time_slot in records:
                         record_info = (f"Record ID: {rec_id}, Diagnosis: {diagnosis}, "
                                      f"Prescription: {prescription}, "
+                                     f"Description: {description}, "
                                      f"Visit Date: {booking_date} at {time_slot}")
                         medical_record_list.insert(tk.END, record_info)
                 else: 
@@ -261,12 +271,13 @@ def show_doctor_gui(root, doctor_id):
              command=lambda: fetch_medical_records(patient_id_entry, medical_record_list)).pack(pady=5)
 
 
-    def add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry):
+    def add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry, description_entry):
         pat_id = patient_id_entry.get().strip()
         diagnosis = diagnosis_entry.get().strip()
         prescription = prescription_entry.get().strip()
+        description = description_entry.get().strip()
         
-        if not all([pat_id, diagnosis, prescription]):
+        if not all([pat_id, diagnosis, prescription, description]):
             messagebox.showerror("Error", "All fields are required")
             return
             
@@ -286,19 +297,20 @@ def show_doctor_gui(root, doctor_id):
                 if not appointment:
                     messagebox.showerror("Error", "No appointment found for this patient today")
                     return
-                
-                # Add the medical record
+            
+                # lägg till ny medical record
                 curr.execute("""
-                    INSERT INTO medicalrecords (pat_id, doc_id, diagnosis, prescription)
-                    VALUES (%s, %s, %s, %s)
-                """, (pat_id, doctor_id, diagnosis, prescription))
+                    INSERT INTO medicalrecords (pat_id, doc_id, diagnosis, prescription, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (pat_id, doctor_id, diagnosis, prescription, description))
                 
                 conn.commit()
                 messagebox.showinfo("Success", "Medical record added successfully")
                 
-                # Clear the entry fields
+                # cleara fältet
                 diagnosis_entry.delete(0, tk.END)
                 prescription_entry.delete(0, tk.END)
+                description_entry.delete(0, tk.END)
                 
         except Exception as error:
             messagebox.showerror("Error", str(error))
@@ -317,9 +329,13 @@ def show_doctor_gui(root, doctor_id):
     tk.Label(record_frame, text="Prescription:").pack()
     prescription_entry = tk.Entry(record_frame, width=50)
     prescription_entry.pack(pady=5)
+    
+    tk.Label(record_frame, text="Description:").pack()
+    description_entry = tk.Entry(record_frame, width=50)
+    description_entry.pack(pady=5)
 
     tk.Button(record_frame, text="Add Medical Record", 
-        command=lambda: add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry)).pack(pady=10)
+        command=lambda: add_medical_record(patient_id_entry, diagnosis_entry, prescription_entry, description_entry)).pack(pady=10)
     
 
 
