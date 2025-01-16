@@ -6,6 +6,8 @@
 # 4. View their medical record (see all diagnosis and prescription) for each previous visit. - done
 # ----------------------
 
+# @author: Laila Suleiman, Fatima Kadum
+
 import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -14,8 +16,8 @@ from datetime import datetime
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': '',   #Ditt databas username
+    'password': '',  #Password
     'port': 5432
 }
 
@@ -374,8 +376,8 @@ def show_patient_gui(pat_id, root):
         def book_appointment():
              #KOMMENTERA BORT IF-SATSEN OM DU VILL TESTA BOKA.
             #if not is_today_friday():   
-            #    messagebox.showwarning("Unavailable", "Bookings can only be made on Fridays for the upcoming week.")
-            #    return
+                #messagebox.showwarning("Unavailable", "Bookings can only be made on Fridays for the upcoming week.")
+                #return
             selected_slot_indices = slots_listbox.curselection()
             if not selected_slot_indices:
                 messagebox.showwarning("Selection Error", "Please select a time slot.")

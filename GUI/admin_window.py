@@ -8,6 +8,8 @@
 # 6. See a list of all patients (including their patient ID, full name, and their total (sum of all) visit costs.) - done
 # ----------------------
 
+# @author: Laila Suleiman, Fatima Kadum
+
 import psycopg
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -17,8 +19,8 @@ from datetime import datetime, timedelta
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': '',   #Ditt databas username
+    'password': '',  #Password
     'port': 5432
 }
 
@@ -60,7 +62,9 @@ def show_admin_gui(root):
         try:
             conn = psycopg.connect(**db_config)
             with conn.cursor() as curr:
-                curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  FROM doctors d JOIN specialization s ON d.spec_id = s.spec_id""")
+                curr.execute("""SELECT d.doc_id, d.f_name, d.l_name, s.spec_name, d.phone_nr, d.visit_cost  
+                             FROM doctors d JOIN specialization s 
+                             ON d.spec_id = s.spec_id""")
                 doctors = curr.fetchall()
                 doctor_list.delete(0, tk.END) 
                 for doc_id, f_name, l_name, spec_name, phone_nr, visit_cost in doctors:

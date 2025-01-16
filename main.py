@@ -6,11 +6,13 @@ from GUI.doctor_window import show_doctor_gui
 from GUI.patient_window import show_patient_gui, sign_up_patient
 from GUI.history_log import show_history_log
 
+# @author: Fatima Kadum, Laila Suleiman
+
 db_config = {
     'host': 'pgserver.mau.se',
     'dbname': 'health_center_group21',  #Namn på ditt databas
-    'user': 'an4263',   #Ditt databas username, laila:an4952, fatima:an4263
-    'password': '2ecfcvkm',  #Password, laila:50owi0jd, fatima:2ecfcvkm
+    'user': '',   #Ditt databas username
+    'password': '',  #Password
     'port': 5432
 }
 
